@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cream White #F3EEDB */
+    --background: 45 50% 90%;
+    /* Primary Dark #1A1A1A */
+    --foreground: 0 0% 10%;
+
+    /* Warm White #EFE7D2 */
+    --card: 42 49% 91%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 42 49% 91%;
+    --popover-foreground: 0 0% 10%;
+
+    /* Nomotix Gold #F0C443 */
+    --primary: 45 85% 60%;
+    /* Primary Dark for contrast */
+    --primary-foreground: 0 0% 10%;
+
+    /* Warm White #EFE7D2 */
+    --secondary: 42 49% 85%;
+    /* Primary Brown #2A2321 */
+    --secondary-foreground: 20 9% 15%;
+
+    /* Gear Grey lighter */
+    --muted: 0 0% 88%;
+    /* Dark Grey #7A7A7A */
+    --muted-foreground: 0 0% 48%;
+
+    /* Golden Yellow #E5B43A */
+    --accent: 43 78% 56%;
+    --accent-foreground: 0 0% 10%;
+
+    /* Emergency Red #E53935 */
+    --destructive: 1 76% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success Green #4CAF50 */
+    --success: 122 39% 49%;
+    --success-foreground: 0 0% 100%;
+
+    /* Emergency Red */
+    --emergency: 1 76% 55%;
+    --emergency-foreground: 0 0% 100%;
+
+    /* Golden Yellow for warning */
+    --warning: 43 78% 56%;
+    --warning-foreground: 0 0% 10%;
+
+    /* Info Blue #2196F3 */
+    --info: 207 90% 54%;
+    --info-foreground: 0 0% 100%;
+
+    /* Gear Grey #B5B5B5 */
+    --border: 0 0% 80%;
+    --input: 0 0% 80%;
+    /* Nomotix Gold */
+    --ring: 45 85% 60%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 42 49% 91%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 45 85% 60%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 43 78% 56%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 80%;
+    --sidebar-ring: 45 85% 60%;
+  }
+
+  .dark {
+    /* Primary Dark #1A1A1A */
+    --background: 0 0% 10%;
+    /* Cream White #F3EEDB */
+    --foreground: 45 50% 90%;
+
+    /* Primary Brown #2A2321 */
+    --card: 20 9% 15%;
+    --card-foreground: 45 50% 90%;
+
+    --popover: 20 9% 15%;
+    --popover-foreground: 45 50% 90%;
+
+    /* Nomotix Gold #F0C443 */
+    --primary: 45 85% 60%;
+    /* Primary Dark for contrast */
+    --primary-foreground: 0 0% 10%;
+
+    /* Darker brown */
+    --secondary: 20 9% 20%;
+    /* Warm White */
+    --secondary-foreground: 42 49% 85%;
+
+    /* Dark Grey */
+    --muted: 0 0% 20%;
+    /* Gear Grey #B5B5B5 */
+    --muted-foreground: 0 0% 71%;
+
+    /* Golden Yellow #E5B43A */
+    --accent: 43 78% 56%;
+    --accent-foreground: 0 0% 10%;
+
+    /* Emergency Red #E53935 */
+    --destructive: 1 76% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success Green #4CAF50 */
+    --success: 122 39% 49%;
+    --success-foreground: 0 0% 10%;
+
+    /* Emergency Red */
+    --emergency: 1 76% 55%;
+    --emergency-foreground: 0 0% 100%;
+
+    /* Info Blue */
+    --info: 207 90% 54%;
+    --info-foreground: 0 0% 10%;
+
+    /* Dark borders */
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    /* Nomotix Gold */
+    --ring: 45 85% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .mobile-container {
+    @apply max-w-md mx-auto min-h-screen bg-background;
+  }
+
+  .page-padding {
+    @apply px-5 py-4;
+  }
+
+  .card-shadow {
+    box-shadow: 0 2px 12px -2px hsl(var(--foreground) / 0.06);
+  }
+
+  .btn-shadow {
+    box-shadow: 0 4px 14px -4px hsl(var(--primary) / 0.35);
+  }
+
+  .btn-accent-shadow {
+    box-shadow: 0 4px 14px -4px hsl(var(--accent) / 0.45);
+  }
+}
