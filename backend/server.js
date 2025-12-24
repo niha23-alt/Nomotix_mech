@@ -1,5 +1,6 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
+import express from "express";
 import cors from "cors";
 import garageRoutes from "./routes/garageRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -10,7 +11,7 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import carRoutes from "./routes/carRoutes.js";
-dotenv.config();
+
 const app = express();
 app.use(cors({
   origin: ["http://localhost:5173"], // your frontend's origin

@@ -77,7 +77,11 @@ export default function Register() {
 
   const handleSubmit = async () => {
     setIsLoading(true);
+    // TODO: Send data to backend to create Garage profile
+    // This will be implemented in the next step when connecting to backend
     await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    // Store local state for now
     localStorage.setItem("mechanic_registered", "true");
     setIsLoading(false);
     navigate("/verification-pending");

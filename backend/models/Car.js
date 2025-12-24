@@ -91,7 +91,6 @@ const CarSchema = new mongoose.Schema({
 
 // Indexes for better performance
 CarSchema.index({ owner: 1 });
-CarSchema.index({ licensePlate: 1 });
 CarSchema.index({ make: 1, model: 1 });
 
 // Update the updatedAt field before saving

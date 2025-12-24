@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, ArrowLeft, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
+import { auth } from "@/lib/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+  }
+}
 
 type Step = "phone" | "otp";
 
@@ -14,6 +22,18 @@ export default function Auth() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+
+  useEffect(() => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
+  }, []);
 
   const handleSendOTP = async () => {
     if (phone.length < 10) {
@@ -21,11 +41,39 @@ export default function Auth() {
       return;
     }
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    setStep("otp");
-    toast.success("OTP sent successfully!");
+    try {
+      const phoneNumber = `+91${phone}`;
+      const appVerifier = window.recaptchaVerifier;
+      const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+      setConfirmationResult(result);
+      setStep("otp");
+      toast.success("OTP sent successfully!");
+    } catch (error) {
+       const err = error as { code?: string; message?: string };
+       console.error("Error sending OTP:", err);
+       
+       let message = "Failed to send OTP. Please try again.";
+       if (err.code === "auth/operation-not-allowed") {
+         message = "SMS service is not enabled in Firebase Console. Please enable Phone Auth and check regional settings (India).";
+       } else if (err.code === "auth/invalid-phone-number") {
+         message = "Invalid phone number format.";
+       } else if (err.code === "auth/too-many-requests") {
+         message = "Too many requests. Please try again later.";
+       } else if (err.message) {
+         message = err.message;
+       }
+       
+       toast.error(message);
+      // Reset reCAPTCHA if it fails
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible'
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVerifyOTP = async () => {
@@ -33,21 +81,37 @@ export default function Auth() {
       toast.error("Please enter a valid OTP");
       return;
     }
+    if (!confirmationResult) {
+      toast.error("No OTP confirmation found. Please try sending OTP again.");
+      setStep("phone");
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    
-    // Check if user is registered (simulated)
-    const isRegistered = localStorage.getItem("mechanic_registered");
-    const isVerified = localStorage.getItem("mechanic_verified");
-    
-    if (!isRegistered) {
-      navigate("/register");
-    } else if (!isVerified) {
-      navigate("/verification-pending");
-    } else {
-      navigate("/bookings");
+    try {
+      await confirmationResult.confirm(otp);
+      
+      // Successfully signed in!
+      toast.success("Authentication successful!");
+      
+      // Here you would typically check your backend if the user is registered as a garage
+      // For now, keeping the simulation logic but with real firebase auth success
+      const isRegistered = localStorage.getItem("mechanic_registered");
+      const isVerified = localStorage.getItem("mechanic_verified");
+      
+      if (!isRegistered) {
+        navigate("/register");
+      } else if (!isVerified) {
+        navigate("/verification-pending");
+      } else {
+        navigate("/bookings");
+      }
+    } catch (error) {
+      const err = error as Error;
+      console.error("Error verifying OTP:", err);
+      toast.error(err.message || "Invalid OTP. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -67,6 +131,7 @@ export default function Auth() {
 
       {/* Content */}
       <div className="flex-1 page-padding pt-8">
+        <div id="recaptcha-container"></div>
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center">
