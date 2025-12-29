@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   User, 
@@ -13,6 +14,7 @@ import {
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import axios from "axios";
 
 const menuItems = [
   {
@@ -35,11 +37,42 @@ const menuItems = [
 
 export default function Profile() {
   const navigate = useNavigate();
+  const [garage, setGarage] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchGarage = async () => {
+      const garageId = localStorage.getItem("garage_id");
+      if (!garageId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`http://localhost:5001/api/garages/${garageId}`);
+        setGarage(response.data);
+      } catch (error) {
+        console.error("Error fetching garage data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchGarage();
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
     navigate("/");
   };
+
+  if (isLoading) {
+    return (
+      <div className="mobile-container flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">Loading profile...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mobile-container pb-24">
@@ -59,21 +92,33 @@ export default function Profile() {
 
         {/* Profile Card */}
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-            <User className="w-8 h-8 text-primary-foreground" />
+          <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center overflow-hidden">
+            {garage?.documents?.profilePhoto ? (
+              <img 
+                src={`http://localhost:5001${garage.documents.profilePhoto}`} 
+                alt="Profile" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-8 h-8 text-primary-foreground" />
+            )}
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h2 className="font-heading font-bold text-lg text-primary-foreground">
-                Rajesh Kumar
+                {garage?.ownerName || "Mechanic"}
               </h2>
-              <BadgeCheck className="w-5 h-5 text-accent" />
+              {garage?.isVerified && <BadgeCheck className="w-5 h-5 text-accent" />}
             </div>
-            <p className="text-sm text-primary-foreground/80">Kumar Auto Works</p>
+            <p className="text-sm text-primary-foreground/80">{garage?.name || "Garage Name"}</p>
             <div className="flex items-center gap-1 mt-1">
               <Star className="w-4 h-4 text-accent fill-accent" />
-              <span className="text-sm font-medium text-primary-foreground">4.8</span>
-              <span className="text-sm text-primary-foreground/60">(156 reviews)</span>
+              <span className="text-sm font-medium text-primary-foreground">
+                {garage?.ratingsSummary?.Customer?.average || "0.0"}
+              </span>
+              <span className="text-sm text-primary-foreground/60">
+                ({garage?.ratingsSummary?.Customer?.totalReviews || "0"} reviews)
+              </span>
             </div>
           </div>
         </div>
@@ -83,15 +128,19 @@ export default function Profile() {
       <div className="px-5 -mt-6">
         <div className="bg-card rounded-2xl p-4 card-shadow border border-border/50 grid grid-cols-3 gap-4">
           <div className="text-center">
-            <p className="font-heading font-bold text-xl text-foreground">156</p>
+            <p className="font-heading font-bold text-xl text-foreground">
+              {garage?.servicesCompleted || "0"}
+            </p>
             <p className="text-xs text-muted-foreground">Completed</p>
           </div>
           <div className="text-center border-x border-border">
-            <p className="font-heading font-bold text-xl text-foreground">8</p>
+            <p className="font-heading font-bold text-xl text-foreground">
+              {garage?.experience || "0"}
+            </p>
             <p className="text-xs text-muted-foreground">Years Exp</p>
           </div>
           <div className="text-center">
-            <p className="font-heading font-bold text-xl text-success">₹45K</p>
+            <p className="font-heading font-bold text-xl text-success">₹0</p>
             <p className="text-xs text-muted-foreground">Earnings</p>
           </div>
         </div>

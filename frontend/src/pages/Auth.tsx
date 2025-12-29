@@ -7,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { toast } from "sonner";
 import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import axios, { AxiosError } from "axios";
 
 declare global {
   interface Window {
@@ -25,14 +26,38 @@ export default function Auth() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   useEffect(() => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
+    const initRecaptcha = async () => {
+      try {
+        if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': () => {
+              // reCAPTCHA solved
+            },
+            'expired-callback': () => {
+              // Response expired. Ask user to solve reCAPTCHA again.
+              toast.error("reCAPTCHA expired. Please try again.");
+            }
+          });
+          await window.recaptchaVerifier.render();
         }
-      });
-    }
+      } catch (error) {
+        console.error("reCAPTCHA initialization error:", error);
+      }
+    };
+
+    initRecaptcha();
+
+    return () => {
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = undefined as any;
+        } catch (e) {
+          console.error("Error clearing reCAPTCHA:", e);
+        }
+      }
+    };
   }, []);
 
   const handleSendOTP = async () => {
@@ -94,19 +119,33 @@ export default function Auth() {
       // Successfully signed in!
       toast.success("Authentication successful!");
       
-      // Here you would typically check your backend if the user is registered as a garage
-      // For now, keeping the simulation logic but with real firebase auth success
-      const isRegistered = localStorage.getItem("mechanic_registered");
-      const isVerified = localStorage.getItem("mechanic_verified");
-      
-      if (!isRegistered) {
-        navigate("/register");
-      } else if (!isVerified) {
-        navigate("/verification-pending");
-      } else {
-        navigate("/bookings");
-      }
+      try {
+        // Check if garage exists for this phone number
+        const response = await axios.get(`http://localhost:5001/api/garages/phone/${phone}`);
+        const garage = response.data;
+        
+        if (garage) {
+          localStorage.setItem("mechanic_registered", "true");
+          localStorage.setItem("garage_id", garage._id);
+          if (garage.isVerified) {
+            localStorage.setItem("mechanic_verified", "true");
+            navigate("/bookings");
+          } else {
+            localStorage.setItem("mechanic_verified", "false");
+            navigate("/verification-pending");
+          }
+        }
     } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response && axiosError.response.status === 404) {
+        // Not registered yet
+        navigate("/register", { state: { phone } });
+      } else {
+        console.error("Error checking registration status:", error);
+        toast.error("Failed to check registration status. Please try again.");
+      }
+    }
+  } catch (error) {
       const err = error as Error;
       console.error("Error verifying OTP:", err);
       toast.error(err.message || "Invalid OTP. Please try again.");

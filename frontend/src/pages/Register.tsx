@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   ArrowLeft, 
   User, 
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
 type Step = 1 | 2 | 3;
 
@@ -36,8 +37,20 @@ const specializations = [
 
 export default function Register() {
   const navigate = useNavigate();
+  const locationState = useLocation();
   const [step, setStep] = useState<Step>(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (locationState.state?.phone) {
+      setPhone(locationState.state.phone);
+    } else {
+      // If no phone is provided, redirect back to auth
+      toast.error("Please verify your phone number first");
+      navigate("/auth");
+    }
+  }, [locationState, navigate]);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -50,6 +63,8 @@ export default function Register() {
     idProof: null as File | null,
     garageLicense: null as File | null,
     profilePhoto: null as File | null,
+    latitude: 0,
+    longitude: 0
   });
 
   const toggleSpecialization = (spec: string) => {
@@ -76,15 +91,47 @@ export default function Register() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.fullName || !formData.garageName || !formData.location) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
     setIsLoading(true);
-    // TODO: Send data to backend to create Garage profile
-    // This will be implemented in the next step when connecting to backend
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // Store local state for now
-    localStorage.setItem("mechanic_registered", "true");
-    setIsLoading(false);
-    navigate("/verification-pending");
+    try {
+      const data = new FormData();
+      data.append("fullName", formData.fullName);
+      data.append("garageName", formData.garageName);
+      data.append("phone", phone);
+      data.append("experience", formData.experience);
+      data.append("specializations", JSON.stringify(formData.specializations));
+      data.append("workingHoursFrom", formData.workingHoursFrom);
+      data.append("workingHoursTo", formData.workingHoursTo);
+      data.append("location", formData.location);
+      data.append("latitude", formData.latitude.toString());
+      data.append("longitude", formData.longitude.toString());
+      
+      if (formData.idProof) data.append("idProof", formData.idProof);
+      if (formData.garageLicense) data.append("garageLicense", formData.garageLicense);
+      if (formData.profilePhoto) data.append("profilePhoto", formData.profilePhoto);
+
+      const response = await axios.post("http://localhost:5001/api/garages", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.status === 201) {
+        toast.success("Registration submitted successfully!");
+        localStorage.setItem("mechanic_registered", "true");
+        localStorage.setItem("garage_id", response.data._id);
+        navigate("/verification-pending");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Failed to submit registration. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -152,6 +199,27 @@ export default function Register() {
     </div>
   );
 
+  const handleUseLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData({
+            ...formData,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast.success("Location captured successfully!");
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Failed to get location. Please enter it manually.");
+        }
+      );
+    } else {
+      toast.error("Geolocation is not supported by your browser");
+    }
+  };
+
   const renderStep2 = () => (
     <div className="space-y-5 animate-fade-in">
       <div>
@@ -185,9 +253,12 @@ export default function Register() {
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
           className="min-h-[100px] rounded-xl border-2 border-input focus:border-primary"
         />
-        <button className="mt-2 text-sm text-primary font-medium flex items-center gap-1.5">
+        <button 
+          onClick={handleUseLocation}
+          className="mt-2 text-sm text-primary font-medium flex items-center gap-1.5"
+        >
           <MapPin className="w-4 h-4" />
-          Use Current Location
+          {formData.latitude ? "Location Captured" : "Use Current Location"}
         </button>
       </div>
     </div>

@@ -25,10 +25,46 @@ export const getGaragesinLocation = async (req,res)=>{
 
 export const createGarage = async (req,res) =>{
     try{
-        const garage=new Garage(req.body);
-        const savedGarage= await garage.save()
+        const {
+            fullName,
+            garageName,
+            phone,
+            experience,
+            specializations,
+            workingHoursFrom,
+            workingHoursTo,
+            location,
+            longitude,
+            latitude
+        } = req.body;
+
+        const garageData = {
+            ownerName: fullName,
+            name: garageName,
+            phone,
+            experience: parseInt(experience),
+            specializations: typeof specializations === 'string' ? JSON.parse(specializations) : specializations,
+            workingHours: {
+                from: workingHoursFrom,
+                to: workingHoursTo
+            },
+            location: {
+                type: 'Point',
+                coordinates: [parseFloat(longitude || 0), parseFloat(latitude || 0)],
+                address: location
+            },
+            documents: {
+                idProof: req.files['idProof'] ? `/uploads/garages/${req.files['idProof'][0].filename}` : null,
+                garageLicense: req.files['garageLicense'] ? `/uploads/garages/${req.files['garageLicense'][0].filename}` : null,
+                profilePhoto: req.files['profilePhoto'] ? `/uploads/garages/${req.files['profilePhoto'][0].filename}` : null
+            }
+        };
+
+        const garage = new Garage(garageData);
+        const savedGarage = await garage.save();
         res.status(201).json(savedGarage);
     }catch(err){
+        console.error("Error creating garage:", err);
         res.status(500).json({message:err.message})
     }
 };
@@ -59,10 +95,21 @@ export const getGaragesinBounds =async (req,res) =>{
         res.status(500).json({message:err.message});
     }
 };
+export const getGarageByPhone = async (req, res) => {
+    try {
+        const { phone } = req.params;
+        const garage = await Garage.findOne({ phone });
+        if (!garage) return res.status(404).json({ message: "Garage not found" });
+        res.status(200).json(garage);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 export const getGarageById = async (req,res) =>{
 try{
-    const garage= await Garage.findById(req.params.id.populate('services.service'));
-    if (!garage) return req.status(404).json({message:"Garage not Found"});
+    const garage= await Garage.findById(req.params.id).populate('services.service');
+    if (!garage) return res.status(404).json({message:"Garage not Found"});
     res.status(200).json(garage);
 }catch(err){
     res.status(500).json({message:err.message});

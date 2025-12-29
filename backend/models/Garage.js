@@ -1,7 +1,15 @@
 import mongoose from "mongoose";
 const garageschema=new mongoose.Schema({
-    name:String,
-    location:{
+    ownerName: String,
+    name: String,
+    phone: { type: String, required: true, unique: true },
+    experience: Number,
+    specializations: [String],
+    workingHours: {
+        from: String,
+        to: String
+    },
+    location: {
        type: {
       type: String,
       enum: ['Point'],
@@ -13,6 +21,12 @@ const garageschema=new mongoose.Schema({
     },
     address: String
     },
+    documents: {
+        idProof: String,
+        garageLicense: String,
+        profilePhoto: String
+    },
+    isVerified: { type: Boolean, default: false },
     services:[{
         service:{type:mongoose.Schema.Types.ObjectId,ref:"Service"},
         CustomPrice:Number,
