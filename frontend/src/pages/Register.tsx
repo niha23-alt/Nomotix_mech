@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import LocationPicker from "@/components/LocationPicker";
 
 type Step = 1 | 2 | 3;
 
@@ -260,6 +261,12 @@ export default function Register() {
           <MapPin className="w-4 h-4" />
           {formData.latitude ? "Location Captured" : "Use Current Location"}
         </button>
+
+        <LocationPicker 
+          lat={formData.latitude} 
+          lng={formData.longitude} 
+          onChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })} 
+        />
       </div>
     </div>
   );

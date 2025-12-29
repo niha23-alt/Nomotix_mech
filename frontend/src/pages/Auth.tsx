@@ -11,7 +11,7 @@ import axios, { AxiosError } from "axios";
 
 declare global {
   interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
+    recaptchaVerifier: RecaptchaVerifier | undefined;
   }
 }
 
@@ -52,7 +52,7 @@ export default function Auth() {
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = undefined as any;
+          window.recaptchaVerifier = undefined;
         } catch (e) {
           console.error("Error clearing reCAPTCHA:", e);
         }
@@ -69,6 +69,9 @@ export default function Auth() {
     try {
       const phoneNumber = `+91${phone}`;
       const appVerifier = window.recaptchaVerifier;
+      if (!appVerifier) {
+        throw new Error("reCAPTCHA not initialized. Please refresh the page.");
+      }
       const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
       setConfirmationResult(result);
       setStep("otp");
