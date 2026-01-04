@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
@@ -33,7 +33,10 @@ function LocationMarker({ lat, lng, onChange }: LocationPickerProps) {
 
   useEffect(() => {
     if (lat !== 0 && lng !== 0) {
-      map.flyTo([lat, lng], map.getZoom());
+      map.flyTo([lat, lng], map.getZoom(), {
+        animate: true,
+        duration: 1
+      });
     }
   }, [lat, lng, map]);
 

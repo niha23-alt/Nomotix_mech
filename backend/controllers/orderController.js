@@ -1,6 +1,74 @@
 import Order from "../models/Order.js";
+import Garage from "../models/Garage.js";
 import PaymentService from "../services/paymentService.js";
 import AuditLog from "../models/AuditLog.js";
+
+export const getNearbyOrders = async (req, res) => {
+  try {
+    const { garageId } = req.params;
+    const { radius = 10 } = req.query; // Default 10km
+
+    const garage = await Garage.findById(garageId);
+    if (!garage) {
+      return res.status(404).json({ message: "Garage not found" });
+    }
+
+    const [lng, lat] = garage.location.coordinates;
+
+    const orders = await Order.find({
+      status: "pending",
+      $or: [
+        { garage: { $exists: false } },
+        { garage: null }
+      ], // Only unassigned orders
+      "serviceLocation.geoJSON": {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          $maxDistance: radius * 1000, // radius in meters
+        },
+      },
+    }).populate("customer", "name phone").populate("car");
+
+    res.status(200).json(orders);
+  } catch (err) {
+    console.error("Error fetching nearby orders:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const acceptOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { garageId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.status !== "pending" || order.garage) {
+      return res.status(400).json({ message: "Order already accepted by another garage" });
+    }
+
+    order.garage = garageId;
+    order.status = "accepted";
+    order.serviceProgress.push({
+      status: "accepted",
+      notes: "Booking accepted by garage",
+      updatedBy: garageId // Assuming garage owner's ID or similar
+    });
+
+    await order.save();
+
+    res.status(200).json(order);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getOrderbyCustomer =async (req,res)=>{
     try{
         const orders= await Order.find({Customer:req.params.customerId}).populate("garage","name location").sort({createdAt:-1});
@@ -11,7 +79,7 @@ export const getOrderbyCustomer =async (req,res)=>{
 };
 export const getOrderbyGarage =async(req,res)=>{
     try{
-        const orders=await Order.find({garage:req.params.garageId});
+        const orders=await Order.find({garage:req.params.garageId}).populate("customer", "name phone").populate("car");
         res.status(200).json({orders});
     }catch(err){
         res.status(500).json({message:err.message});
@@ -19,9 +87,19 @@ export const getOrderbyGarage =async(req,res)=>{
 };
 export const createOrder = async (req,res) =>{
     try{
-        const order= await new Order(req.body);
+        const orderData = req.body;
+        
+        // Ensure geoJSON is populated for proximity searches
+        if (orderData.serviceLocation && orderData.serviceLocation.latitude && orderData.serviceLocation.longitude) {
+          orderData.serviceLocation.geoJSON = {
+            type: 'Point',
+            coordinates: [orderData.serviceLocation.longitude, orderData.serviceLocation.latitude]
+          };
+        }
+
+        const order = new Order(orderData);
         const savedOrder = await order.save();
-        res.status(200).json(order);
+        res.status(200).json(savedOrder);
     }catch(err){
         console.log(err);
         res.status(500).json({message:err.message});

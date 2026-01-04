@@ -9,7 +9,19 @@ const locationSchema = new mongoose.Schema({
   state: String,
   pincode: String,
   isLiveLocation: { type: Boolean, default: false },
-  capturedAt: { type: Date, default: Date.now }
+  capturedAt: { type: Date, default: Date.now },
+  // GeoJSON for proximity search
+  geoJSON: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [lng, lat]
+      index: '2dsphere'
+    }
+  }
 }, { _id: false });
 
 const Orderschema = mongoose.Schema({
@@ -122,6 +134,7 @@ Orderschema.index({ customer: 1, createdAt: -1 });
 Orderschema.index({ car: 1, createdAt: -1 });
 Orderschema.index({ garage: 1, status: 1 });
 Orderschema.index({ status: 1, scheduledAt: 1 });
+Orderschema.index({ "serviceLocation.geoJSON": "2dsphere" });
 
 // Update the updatedAt field before saving
 Orderschema.pre('save', function(next) {
