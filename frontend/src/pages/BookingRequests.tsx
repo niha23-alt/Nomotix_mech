@@ -82,7 +82,9 @@ export default function BookingRequests() {
       const response = await axios.get(`http://localhost:5001/api/orders/nearby/${currentGarageId}`);
       console.log("Nearby Bookings Response:", response.data);
       // Map API response to BookingData format
-      const mappedBookings: BookingData[] = response.data.map((order: BackendOrder) => ({
+      const mappedBookings: BookingData[] = response.data
+        .filter((order: BackendOrder) => order.serviceType !== 'breakdown') // Filter out emergency requests
+        .map((order: BackendOrder) => ({
         id: order._id,
         customerName: order.customer?.name || "Unknown Customer",
         vehicleDetails: order.car ? `${order.car.make} ${order.car.model} - ${order.car.licensePlate}` : "Vehicle Info N/A",
@@ -90,7 +92,7 @@ export default function BookingRequests() {
         timeSlot: order.scheduledAt ? new Date(order.scheduledAt).toLocaleString() : "As soon as possible",
         problemDescription: order.services.map((s) => (typeof s === 'string' ? s : s.name)).join(", ") || "No description",
         isNew: true,
-        isEmergency: order.serviceType === 'breakdown',
+        isEmergency: false,
       }));
       setBookings(mappedBookings);
     } catch (error) {
