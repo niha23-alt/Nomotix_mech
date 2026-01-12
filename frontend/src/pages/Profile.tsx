@@ -99,22 +99,17 @@ export default function Profile() {
         
         console.log(`Fetched completed bookings count: ${count}, earnings: ₹${totalEarnings}`);
         
-        // Use mock data if API returns 0, as requested by user
-        if (count === 0) {
-          console.log('No real completed bookings found, using mock data');
-          count = 12;
-          // Calculate mock earnings based on 12 sample bookings
-          totalEarnings = 2500 + 1800 + 3200 + 1500 + 2200 + 2800 + 3000 + 3500 + 2100 + 1900 + 3300 + 4000;
-        }
+        // Use actual count and earnings from API
+        console.log(`✅ Using real data: ${count} completed bookings, ₹${totalEarnings} earnings`);
         
         setCompletedBookingsCount(count);
         setEarnings(totalEarnings);
       } catch (error) {
         console.error("Error fetching completed bookings count:", error);
-        // Use mock data in case of API error
-        setCompletedBookingsCount(12);
-        setEarnings(2500 + 1800 + 3200 + 1500 + 2200 + 2800 + 3000 + 3500 + 2100 + 1900 + 3300 + 4000);
-        console.log('Using mock data due to API error');
+        // Use 0 values in case of API error
+        setCompletedBookingsCount(0);
+        setEarnings(0);
+        console.log('Using 0 values due to API error');
       }
     };
 
