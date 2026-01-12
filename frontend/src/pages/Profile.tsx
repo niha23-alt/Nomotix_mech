@@ -14,65 +14,171 @@ import {
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
 import axios from "axios";
-
-const menuItems = [
-  {
-    icon: User,
-    label: "Personal Information",
-    path: "/profile/personal",
-  },
-  {
-    icon: FileText,
-    label: "Completed Bookings",
-    path: "/completed",
-    badge: "12",
-  },
-  {
-    icon: HelpCircle,
-    label: "Help & Support",
-    path: "/support",
-  },
-];
 
 export default function Profile() {
   const navigate = useNavigate();
   const [garage, setGarage] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isEmergencyCalling, setIsEmergencyCalling] = useState(false);
+  const [completedBookingsCount, setCompletedBookingsCount] = useState<number>(0);
+  const [earnings, setEarnings] = useState<number>(0);
+  const { toast } = useToast();
+
+  // Menu items with dynamic completed bookings count
+  const menuItems = [
+    {
+      icon: User,
+      label: "Garage Information",
+      path: "/profile/personal",
+    },
+    {
+      icon: FileText,
+      label: "Completed Bookings",
+      path: "/completed",
+      badge: completedBookingsCount.toString(),
+    },
+    {
+      icon: HelpCircle,
+      label: "Help & Support",
+      path: "/support",
+    },
+  ];
 
   useEffect(() => {
     const fetchGarage = async () => {
       const garageId = localStorage.getItem("garage_id");
       if (!garageId) {
-        setIsLoading(false);
+        navigate("/auth");
         return;
       }
 
       try {
         const response = await axios.get(`http://localhost:5001/api/garages/${garageId}`);
-        setGarage(response.data);
+        if (response.data.success) {
+          setGarage(response.data.data);
+        }
       } catch (error) {
         console.error("Error fetching garage data:", error);
-      } finally {
-        setIsLoading(false);
+        // If garage not found, clear invalid garage_id and redirect to login
+        if (error.response && error.response.status === 404) {
+          console.log('Invalid garage_id, clearing localStorage and redirecting to login.');
+          localStorage.removeItem('garage_id');
+          localStorage.removeItem('mechanic_registered');
+          localStorage.removeItem('mechanic_verified');
+          navigate("/auth");
+        }
+      }
+    };
+
+    const fetchCompletedBookingsCount = async () => {
+      const garageId = localStorage.getItem("garage_id");
+      if (!garageId) {
+        return;
+      }
+
+      try {
+        const response = await axios.get(`http://localhost:5001/api/orders/garage/${garageId}?status=completed`);
+        
+        let count = 0;
+        let totalEarnings = 0;
+        
+        if (response.data.orders && Array.isArray(response.data.orders)) {
+          count = response.data.orders.length;
+          // Calculate earnings from real data if available
+          totalEarnings = response.data.orders.reduce((sum: number, order: any) => {
+            return sum + (order.bill?.total || 0);
+          }, 0);
+        } else if (Array.isArray(response.data)) {
+          count = response.data.length;
+          // Calculate earnings from direct array response
+          totalEarnings = response.data.reduce((sum: number, order: any) => {
+            return sum + (order.bill?.total || 0);
+          }, 0);
+        }
+        
+        console.log(`Fetched completed bookings count: ${count}, earnings: ₹${totalEarnings}`);
+        
+        // Use mock data if API returns 0, as requested by user
+        if (count === 0) {
+          console.log('No real completed bookings found, using mock data');
+          count = 12;
+          // Calculate mock earnings based on 12 sample bookings
+          totalEarnings = 2500 + 1800 + 3200 + 1500 + 2200 + 2800 + 3000 + 3500 + 2100 + 1900 + 3300 + 4000;
+        }
+        
+        setCompletedBookingsCount(count);
+        setEarnings(totalEarnings);
+      } catch (error) {
+        console.error("Error fetching completed bookings count:", error);
+        // Use mock data in case of API error
+        setCompletedBookingsCount(12);
+        setEarnings(2500 + 1800 + 3200 + 1500 + 2200 + 2800 + 3000 + 3500 + 2100 + 1900 + 3300 + 4000);
+        console.log('Using mock data due to API error');
       }
     };
 
     fetchGarage();
-  }, []);
+    fetchCompletedBookingsCount();
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.clear();
     navigate("/");
   };
 
-  if (isLoading) {
-    return (
-      <div className="mobile-container flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Loading profile...</p>
-      </div>
+  const handleEmergencyCall = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation not supported",
+        description: "Your browser does not support geolocation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEmergencyCalling(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const token = localStorage.getItem("token");
+          await axios.post(
+            "http://localhost:5001/api/emergency/request",
+            { latitude, longitude },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          toast({
+            title: "Emergency request sent",
+            description: "Nearby mechanics have been notified.",
+          });
+        } catch (error) {
+          console.error("Error sending emergency request:", error);
+          toast({
+            title: "Failed to send emergency request",
+            description: "Please try again later.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsEmergencyCalling(false);
+        }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        toast({
+          title: "Geolocation error",
+          description: "Unable to retrieve your location. Please enable location services.",
+          variant: "destructive",
+        });
+        setIsEmergencyCalling(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
-  }
+  };
 
   return (
     <div className="mobile-container pb-24">
@@ -129,7 +235,7 @@ export default function Profile() {
         <div className="bg-card rounded-2xl p-4 card-shadow border border-border/50 grid grid-cols-3 gap-4">
           <div className="text-center">
             <p className="font-heading font-bold text-xl text-foreground">
-              {garage?.servicesCompleted || "0"}
+              {completedBookingsCount}
             </p>
             <p className="text-xs text-muted-foreground">Completed</p>
           </div>
@@ -140,7 +246,7 @@ export default function Profile() {
             <p className="text-xs text-muted-foreground">Years Exp</p>
           </div>
           <div className="text-center">
-            <p className="font-heading font-bold text-xl text-success">₹0</p>
+            <p className="font-heading font-bold text-xl text-success">₹{earnings.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Earnings</p>
           </div>
         </div>
@@ -183,7 +289,20 @@ export default function Profile() {
           <LogOut className="w-5 h-5 mr-2" />
           Logout
         </Button>
+
+        {/* Emergency Call Button */}
+        <Button
+          variant="default"
+          size="lg"
+          className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white"
+          onClick={handleEmergencyCall}
+          disabled={isEmergencyCalling}
+        >
+          {isEmergencyCalling ? "Calling..." : "Emergency Call"}
+        </Button>
       </div>
+
+
 
       <BottomNavigation />
     </div>

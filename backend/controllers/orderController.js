@@ -1,25 +1,106 @@
+import mongoose from "mongoose";
 import Order from "../models/Order.js";
+import Garage from "../models/Garage.js";
 import PaymentService from "../services/paymentService.js";
 import AuditLog from "../models/AuditLog.js";
 export const getOrderbyCustomer =async (req,res)=>{
     try{
-        const orders= await Order.find({Customer:req.params.customerId}).populate("garage","name location").sort({createdAt:-1});
-    res.status(200).json(orders);
+        const { customerId } = req.params;
+        
+        // Validate that customerId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(customerId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid customer ID format" 
+            });
+        }
+        
+        const orders= await Order.find({customer: customerId})
+            .populate("garage","name location")
+            .populate("car", "make model year")
+            .sort({createdAt:-1});
+        res.status(200).json({ 
+            success: true, 
+            message: "Orders retrieved successfully",
+            orders 
+        });
     }catch(err){
-        res.status(500).json({message:err.message});
+        console.error("Error fetching orders by customer:", err);
+        res.status(500).json({ 
+            success: false, 
+            message: "Failed to retrieve orders",
+            error: err.message 
+        });
     }
 };
+
 export const getOrderbyGarage =async(req,res)=>{
     try{
-        const orders=await Order.find({garage:req.params.garageId});
-        res.status(200).json({orders});
+        const { garageId } = req.params;
+        const { status } = req.query; // Get status from query parameters
+
+        // Validate that garageId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(garageId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid garage ID format" 
+            });
+        }
+
+        const filter = { garage: garageId };
+        if (status) {
+            filter.status = status; // Apply status filter if provided
+        } else {
+            filter.status = "pending"; // Default to "pending" status
+        }
+
+        const orders=await Order.find(filter)
+            .populate("customer", "name email")
+            .populate("car", "make model year");
+        res.status(200).json({ 
+            success: true, 
+            message: "Orders retrieved successfully",
+            orders 
+        });
     }catch(err){
-        res.status(500).json({message:err.message});
+        console.error("Error fetching orders by garage:", err);
+        res.status(500).json({ 
+            success: false, 
+            message: "Failed to retrieve orders",
+            error: err.message 
+        });
     }
 };
 export const createOrder = async (req,res) =>{
     try{
-        const order= await new Order(req.body);
+        const { serviceLocation, ...orderData } = req.body;
+
+        if (!serviceLocation || !serviceLocation.latitude || !serviceLocation.longitude) {
+            return res.status(400).json({ message: "Service location (latitude and longitude) is required." });
+        }
+
+        // Find the nearest garage
+        const nearestGarage = await Garage.findOne({
+            location: {
+                $nearSphere: {
+                    $geometry: {
+                        type: "Point",
+                        coordinates: [serviceLocation.longitude, serviceLocation.latitude]
+                    },
+                    $maxDistance: 50000 // Search within 50 km radius (adjust as needed)
+                }
+            }
+        }).select('_id'); // Only select the ID
+
+        if (!nearestGarage) {
+            return res.status(404).json({ message: "No garages found near the specified location." });
+        }
+
+        const order = await new Order({
+            ...orderData,
+            serviceLocation,
+            garage: nearestGarage._id, // Assign the nearest garage
+        });
         const savedOrder = await order.save();
         res.status(200).json(order);
     }catch(err){
@@ -303,6 +384,63 @@ export const canCancelOrder = async (req, res) => {
     res.status(500).json({
       canCancel: false,
       reason: "Server error"
+    });
+  }
+};
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    // Validate that orderId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid order ID format" 
+      });
+    }
+
+    // Validate status
+    const validStatuses = ["pending", "accepted", "completed", "in-progress", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      });
+    }
+
+    const updateData = { status };
+    
+    // If status is completed, add completedAt timestamp
+    if (status === "completed") {
+      updateData.completedAt = new Date();
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      updateData,
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Order not found" 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Order status updated successfully",
+      order 
+    });
+  } catch (err) {
+    console.error("Error updating order status:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to update order status",
+      error: err.message 
     });
   }
 };
