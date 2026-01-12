@@ -45,22 +45,33 @@ export default function CompletedBookings() {
   useEffect(() => {
     const fetchCompletedBookings = async () => {
       const garageId = localStorage.getItem("garage_id");
+      console.log('🔍 Fetching completed bookings with garageId:', garageId);
       if (!garageId) {
+        console.log('🚨 No garageId found in localStorage');
         navigate("/auth");
         return;
       }
 
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:5001/api/orders/garage/${garageId}?status=completed`);
+        const apiUrl = `http://localhost:5001/api/orders/garage/${garageId}?status=completed`;
+        console.log('📡 Calling API:', apiUrl);
+        const response = await axios.get(apiUrl);
+        
+        console.log('📥 API response status:', response.status);
+        console.log('📥 API response data:', response.data);
         
         let fetchedBookings: CompletedBooking[] = [];
         
         // Handle different response formats
         if (response.data.orders && Array.isArray(response.data.orders)) {
           fetchedBookings = response.data.orders;
+          console.log('📋 Found orders in response:', fetchedBookings.length);
         } else if (Array.isArray(response.data)) {
           fetchedBookings = response.data;
+          console.log('📋 Found orders in direct array response:', fetchedBookings.length);
+        } else {
+          console.error('❌ Unexpected API response format:', response.data);
         }
         
         // Sort by completedAt in descending order (most recent first)
@@ -81,13 +92,47 @@ export default function CompletedBookings() {
               ]
             };
           }
-          return booking;
+          
+          // Process services to ensure they have proper structure
+          const processedServices = booking.services.map(serviceItem => {
+            // Check if serviceItem is just an ObjectId or has only _id property
+            if (typeof serviceItem === 'object' && serviceItem._id && Object.keys(serviceItem).length === 1) {
+              // If it's just an ObjectId reference, use default service
+              return { name: "Tyres", price: 1000 };
+            }
+            // Check if serviceItem has a nested service property (from populate)
+            else if (serviceItem.service && typeof serviceItem.service === 'object') {
+              // Extract service details from nested service property
+              return {
+                name: serviceItem.service.name || "Service",
+                price: serviceItem.CustomPrice || serviceItem.service.basePrice || 1000
+              };
+            } 
+            // Check if serviceItem has direct name and price (old format)
+            else if (serviceItem.name && typeof serviceItem.price === 'number') {
+              return serviceItem;
+            }
+            // Fallback to default service for any other case
+            else {
+              return { name: "Tyres", price: 1000 };
+            }
+          });
+          
+          return {
+            ...booking,
+            services: processedServices
+          };
         });
         
+        console.log('✅ Final bookings to display:', bookingsWithProperServices.length);
         setBookings(bookingsWithProperServices);
         setError(null);
       } catch (err: any) {
-        console.error("Error fetching completed bookings:", err);
+        console.error("❌ Error fetching completed bookings:", err);
+        if (err.response) {
+          console.error('❌ Error response status:', err.response.status);
+          console.error('❌ Error response data:', err.response.data);
+        }
         setError("Failed to load completed bookings. Please check your connection and try again.");
       } finally {
         setLoading(false);
@@ -96,6 +141,12 @@ export default function CompletedBookings() {
 
     fetchCompletedBookings();
   }, [navigate]);
+  
+  // Add a function to manually set the correct garage ID for testing
+  const setTestGarageId = () => {
+    localStorage.setItem('garage_id', '6954ba79853fd734eefdfdcd');
+    window.location.reload();
+  };
 
   const renderContent = () => {
     if (loading) {
@@ -180,7 +231,7 @@ export default function CompletedBookings() {
               <div className="flex items-center gap-3">
                 <Calendar className="w-5 h-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">₹{booking.bill.total.toLocaleString()}</p>
+                  <p className="text-sm font-medium">₹{booking.bill?.total?.toLocaleString() || '0'}</p>
                   <p className="text-xs text-muted-foreground">Total Amount</p>
                 </div>
               </div>
@@ -264,7 +315,7 @@ export default function CompletedBookings() {
                   <div className="h-px bg-border my-2"></div>
                   <div className="flex justify-between items-center font-medium">
                     <p>Total</p>
-                    <p>₹{selectedBooking.bill?.total.toLocaleString()}</p>
+                    <p>₹{selectedBooking.bill?.total?.toLocaleString() || '0'}</p>
                   </div>
                 </div>
               </div>

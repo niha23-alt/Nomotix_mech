@@ -56,7 +56,8 @@ export const getOrderbyGarage =async(req,res)=>{
 
         const orders=await Order.find(filter)
             .populate("customer", "name email")
-            .populate("car", "make model year");
+            .populate("car", "make model year")
+            .populate("services.service");
         res.status(200).json({ 
             success: true, 
             message: "Orders retrieved successfully",
