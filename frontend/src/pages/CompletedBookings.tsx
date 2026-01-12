@@ -45,9 +45,7 @@ export default function CompletedBookings() {
   useEffect(() => {
     const fetchCompletedBookings = async () => {
       const garageId = localStorage.getItem("garage_id");
-      console.log('🔍 Fetching completed bookings with garageId:', garageId);
       if (!garageId) {
-        console.log('🚨 No garageId found in localStorage');
         navigate("/auth");
         return;
       }
@@ -55,23 +53,15 @@ export default function CompletedBookings() {
       try {
         setLoading(true);
         const apiUrl = `http://localhost:5001/api/orders/garage/${garageId}?status=completed`;
-        console.log('📡 Calling API:', apiUrl);
         const response = await axios.get(apiUrl);
-        
-        console.log('📥 API response status:', response.status);
-        console.log('📥 API response data:', response.data);
         
         let fetchedBookings: CompletedBooking[] = [];
         
         // Handle different response formats
         if (response.data.orders && Array.isArray(response.data.orders)) {
           fetchedBookings = response.data.orders;
-          console.log('📋 Found orders in response:', fetchedBookings.length);
         } else if (Array.isArray(response.data)) {
           fetchedBookings = response.data;
-          console.log('📋 Found orders in direct array response:', fetchedBookings.length);
-        } else {
-          console.error('❌ Unexpected API response format:', response.data);
         }
         
         // Sort by completedAt in descending order (most recent first)
@@ -124,15 +114,9 @@ export default function CompletedBookings() {
           };
         });
         
-        console.log('✅ Final bookings to display:', bookingsWithProperServices.length);
         setBookings(bookingsWithProperServices);
         setError(null);
       } catch (err: any) {
-        console.error("❌ Error fetching completed bookings:", err);
-        if (err.response) {
-          console.error('❌ Error response status:', err.response.status);
-          console.error('❌ Error response data:', err.response.data);
-        }
         setError("Failed to load completed bookings. Please check your connection and try again.");
       } finally {
         setLoading(false);
