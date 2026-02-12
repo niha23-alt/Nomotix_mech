@@ -121,10 +121,10 @@ export default function Register() {
         },
       });
 
-      if (response.status === 201) {
+      if (response.status === 201 && response.data.success) {
         toast.success("Registration submitted successfully!");
         localStorage.setItem("mechanic_registered", "true");
-        localStorage.setItem("garage_id", response.data._id);
+        localStorage.setItem("garage_id", response.data.data._id);
         navigate("/verification-pending");
       }
     } catch (error) {

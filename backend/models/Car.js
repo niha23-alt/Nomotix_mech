@@ -70,7 +70,7 @@ const CarSchema = new mongoose.Schema({
     type: String, 
     enum: ['Excellent', 'Good', 'Fair', 'Poor'], 
     default: 'Good' 
-  },
+  },    
   
   // Verification status
   isVerified: { type: Boolean, default: false },

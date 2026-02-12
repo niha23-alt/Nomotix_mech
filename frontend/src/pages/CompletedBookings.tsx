@@ -1,121 +1,322 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Car, Calendar, FileText, Eye } from "lucide-react";
+import { ArrowLeft, User, Car, Calendar, FileText, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import axios from "axios";
 
-interface CompletedBooking {
-  id: string;
-  customerName: string;
-  vehicleDetails: string;
-  completedOn: string;
-  amount: number;
+interface Service {
+  name: string;
+  price: number;
 }
 
-const mockCompletedBookings: CompletedBooking[] = [
-  {
-    id: "c1",
-    customerName: "Rahul Sharma",
-    vehicleDetails: "Honda City 2020",
-    completedOn: "Dec 8, 2024",
-    amount: 2500,
-  },
-  {
-    id: "c2",
-    customerName: "Priya Patel",
-    vehicleDetails: "Maruti Swift",
-    completedOn: "Dec 7, 2024",
-    amount: 1800,
-  },
-  {
-    id: "c3",
-    customerName: "Amit Kumar",
-    vehicleDetails: "Hyundai Creta",
-    completedOn: "Dec 6, 2024",
-    amount: 3200,
-  },
-  {
-    id: "c4",
-    customerName: "Vikram Singh",
-    vehicleDetails: "Toyota Fortuner",
-    completedOn: "Dec 5, 2024",
-    amount: 4500,
-  },
-  {
-    id: "c5",
-    customerName: "Neha Gupta",
-    vehicleDetails: "Tata Nexon",
-    completedOn: "Dec 4, 2024",
-    amount: 1200,
-  },
-];
+interface CompletedBooking {
+  _id: string;
+  customer: {
+    name: string;
+  };
+  car: {
+    make: string;
+    model: string;
+    year: number;
+  };
+  completedAt: string;
+  createdAt: string;
+  services: Service[];
+  bill: {
+    total: number;
+  };
+  status: string;
+}
 
 export default function CompletedBookings() {
   const navigate = useNavigate();
-  const [bookings] = useState<CompletedBooking[]>(mockCompletedBookings);
+  const [bookings, setBookings] = useState<CompletedBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<CompletedBooking | null>(null);
 
-  return (
-    <div className="mobile-container min-h-screen pb-8">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-card border-b border-border">
-        <div className="page-padding py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate("/profile")}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center"
-          >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
-          </button>
-          <div>
-            <h1 className="font-heading font-bold text-lg text-foreground">
-              Completed Bookings
-            </h1>
-            <p className="text-sm text-muted-foreground">{bookings.length} total</p>
-          </div>
+  useEffect(() => {
+    const fetchCompletedBookings = async () => {
+      const garageId = localStorage.getItem("garage_id");
+      if (!garageId) {
+        navigate("/auth");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const apiUrl = `http://localhost:5001/api/orders/garage/${garageId}?status=completed`;
+        const response = await axios.get(apiUrl);
+        
+        let fetchedBookings: CompletedBooking[] = [];
+        
+        // Handle different response formats
+        if (response.data.orders && Array.isArray(response.data.orders)) {
+          fetchedBookings = response.data.orders;
+        } else if (Array.isArray(response.data)) {
+          fetchedBookings = response.data;
+        }
+        
+        // Sort by completedAt in descending order (most recent first)
+        fetchedBookings.sort((a, b) => {
+          const dateA = new Date(a.completedAt || a.createdAt).getTime();
+          const dateB = new Date(b.completedAt || b.createdAt).getTime();
+          return dateB - dateA;
+        });
+        
+        // Ensure each booking has proper service data
+        const bookingsWithProperServices = fetchedBookings.map(booking => {
+          // If the booking doesn't have services, add default service
+          if (!booking.services || booking.services.length === 0) {
+            return {
+              ...booking,
+              services: [
+                { name: "Tyres", price: 1000 }
+              ]
+            };
+          }
+          
+          // Process services to ensure they have proper structure
+          const processedServices = booking.services.map(serviceItem => {
+            // Check if serviceItem is just an ObjectId or has only _id property
+            if (typeof serviceItem === 'object' && serviceItem._id && Object.keys(serviceItem).length === 1) {
+              // If it's just an ObjectId reference, use default service
+              return { name: "Tyres", price: 1000 };
+            }
+            // Check if serviceItem has a nested service property (from populate)
+            else if (serviceItem.service && typeof serviceItem.service === 'object') {
+              // Extract service details from nested service property
+              return {
+                name: serviceItem.service.name || "Service",
+                price: serviceItem.CustomPrice || serviceItem.service.basePrice || 1000
+              };
+            } 
+            // Check if serviceItem has direct name and price (old format)
+            else if (serviceItem.name && typeof serviceItem.price === 'number') {
+              return serviceItem;
+            }
+            // Fallback to default service for any other case
+            else {
+              return { name: "Tyres", price: 1000 };
+            }
+          });
+          
+          return {
+            ...booking,
+            services: processedServices
+          };
+        });
+        
+        setBookings(bookingsWithProperServices);
+        setError(null);
+      } catch (err: any) {
+        setError("Failed to load completed bookings. Please check your connection and try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCompletedBookings();
+  }, [navigate]);
+  
+  // Add a function to manually set the correct garage ID for testing
+  const setTestGarageId = () => {
+    localStorage.setItem('garage_id', '6954ba79853fd734eefdfdcd');
+    window.location.reload();
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
         </div>
-      </div>
+      );
+    }
 
-      <div className="page-padding">
-        {/* Bookings List */}
-        <div className="space-y-3">
-          {bookings.map((booking) => (
-            <div
-              key={booking.id}
-              className="bg-card rounded-2xl p-4 card-shadow border border-border/50 animate-fade-in"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-success/10 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-success" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-semibold text-foreground">
-                      {booking.customerName}
-                    </h3>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Car className="w-4 h-4" />
-                      <span>{booking.vehicleDetails}</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="font-heading font-bold text-success">
-                  ₹{booking.amount.toLocaleString()}
+    if (error) {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          <p>{error}</p>
+          <Button 
+            variant="default" 
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    if (bookings.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-4">
+            <FileText className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">No Completed Bookings</h3>
+          <p className="text-muted-foreground max-w-md">
+            You don't have any completed bookings yet. Completed bookings will appear here.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {bookings.map((booking) => (
+          <div key={booking._id} className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Booking #{booking._id.slice(-6)}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Completed on {new Date(booking.completedAt).toLocaleDateString()}
                 </p>
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <span>{booking.completedOn}</span>
-                </div>
-
-                <Button variant="ghost" size="sm" className="text-primary">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedBooking(booking)}
+                >
                   <Eye className="w-4 h-4 mr-1" />
-                  View Invoice
+                  View
                 </Button>
               </div>
             </div>
-          ))}
-        </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">{booking.customer.name}</p>
+                  <p className="text-xs text-muted-foreground">Customer</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Car className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {booking.car.make} {booking.car.model} ({booking.car.year})
+                  </p>
+                  <p className="text-xs text-muted-foreground">Car</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">₹{booking.bill?.total?.toLocaleString() || '0'}</p>
+                  <p className="text-xs text-muted-foreground">Total Amount</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
+    );
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Completed Bookings</h1>
+          <p className="text-muted-foreground">Manage your completed service bookings</p>
+        </div>
+        <Button 
+          variant="outline"
+          onClick={() => navigate("/")}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Dashboard
+        </Button>
+      </div>
+      
+      {renderContent()}
+      
+      {/* View Invoice Dialog */}
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedBooking && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Booking Information</h4>
+                  <div className="bg-secondary p-4 rounded-md space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-sm text-muted-foreground">Booking ID</p>
+                      <p className="text-sm font-medium">{selectedBooking._id}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-muted-foreground">Booking Date</p>
+                      <p className="text-sm">{new Date(selectedBooking.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-muted-foreground">Completion Date</p>
+                      <p className="text-sm">{new Date(selectedBooking.completedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Customer Details</h4>
+                  <div className="bg-secondary p-4 rounded-md space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="text-sm font-medium">{selectedBooking.customer.name}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-muted-foreground">Car</p>
+                      <p className="text-sm">{selectedBooking.car.make} {selectedBooking.car.model}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium mb-2">Services Provided</h4>
+                <div className="bg-secondary p-4 rounded-md space-y-3">
+                  {selectedBooking.services.map((service, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <p className="text-sm">{service.name}</p>
+                      <p>₹{service.price.toLocaleString()}</p>
+                    </div>
+                  ))}
+                  <div className="h-px bg-border my-2"></div>
+                  <div className="flex justify-between items-center font-medium">
+                    <p>Total</p>
+                    <p>₹{selectedBooking.bill?.total?.toLocaleString() || '0'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-2">
+                <Button variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Invoice
+                </Button>
+                <Button variant="default">
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

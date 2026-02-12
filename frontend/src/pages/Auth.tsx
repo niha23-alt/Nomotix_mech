@@ -125,9 +125,9 @@ export default function Auth() {
       try {
         // Check if garage exists for this phone number
         const response = await axios.get(`http://localhost:5001/api/garages/phone/${phone}`);
-        const garage = response.data;
         
-        if (garage) {
+        if (response.data.success && response.data.data) {
+          const garage = response.data.data;
           localStorage.setItem("mechanic_registered", "true");
           localStorage.setItem("garage_id", garage._id);
           if (garage.isVerified) {

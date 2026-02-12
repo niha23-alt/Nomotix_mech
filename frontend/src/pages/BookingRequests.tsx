@@ -1,9 +1,24 @@
+
+import { useState, useEffect } from "react";
+=======
 import { useState, useEffect, useCallback } from "react";
+
 import { TopBar } from "@/components/TopBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { BookingCard, BookingData } from "@/components/BookingCard";
 import { NegotiateSheet } from "@/components/NegotiateSheet";
 import { toast } from "sonner";
+
+import { Calendar } from "lucide-react";
+import axios from "axios"; // Import axios for API calls
+
+type FilterType = "all" | "today";
+
+export default function BookingRequests() {
+  const [bookings, setBookings] = useState<BookingData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+=======
 import { Calendar, Loader2 } from "lucide-react";
 import axios from "axios";
 
@@ -37,9 +52,54 @@ interface BackendOrder {
 export default function BookingRequests() {
   const [bookings, setBookings] = useState<BookingData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [negotiateOpen, setNegotiateOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
+
+
+  // Placeholder for garageId - this should come from authentication context in a real app
+  const garageId = "65e683a9217316c52676081e"; // Replace with actual garage ID
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`/api/orders/garage/${garageId}?status=pending`);
+        console.log("API Response:", response);
+        console.log("API Response Data:", response.data);
+        const orders = response.data?.orders; // Safely access orders
+        if (!orders || !Array.isArray(orders)) {
+          console.warn("API response did not contain an array of orders:", response.data);
+          setBookings([]);
+          setLoading(false);
+          return;
+        }
+
+        const fetchedBookings: BookingData[] = orders.map((order: any) => ({
+            id: order._id,
+            customerName: order.customer?.name || "N/A",
+            vehicleDetails: order.car ? `${order.car.make} ${order.car.model} - ${order.car.licensePlate}` : "N/A",
+            distance: "N/A",
+            timeSlot: new Date(order.createdAt).toLocaleString(),
+            problemDescription: order.problemDescription || "No description provided.",
+            isNew: order.status === "pending",
+          }));
+        setBookings(fetchedBookings);
+      } catch (err) {
+        console.error("Failed to fetch bookings:", err);
+        setError("Failed to load booking requests.");
+        toast.error("Failed to load booking requests.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (garageId) {
+      fetchBookings();
+    }
+  }, [garageId]);
+
 
   const garageId = localStorage.getItem("garage_id");
 
@@ -106,6 +166,7 @@ export default function BookingRequests() {
   useEffect(() => {
     fetchNearbyBookings();
   }, [fetchNearbyBookings]);
+
 
   const filteredBookings = filter === "today" 
     ? bookings.filter(b => b.timeSlot.toLowerCase().includes("today") || b.timeSlot.toLowerCase().includes(new Date().toLocaleDateString()))
@@ -177,13 +238,21 @@ export default function BookingRequests() {
           </button>
         </div>
 
+        {/* Loading and Error States */}
+        {loading && <p className="text-center py-8">Loading booking requests...</p>}
+        {error && <p className="text-center py-8 text-red-500">{error}</p>}
+
         {/* Bookings List */}
+
+        {!loading && !error && filteredBookings.length > 0 ? (
+=======
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
             <p className="text-sm text-muted-foreground">Finding nearby requests...</p>
           </div>
         ) : filteredBookings.length > 0 ? (
+
           <div className="space-y-4">
             {filteredBookings.map((booking) => (
               <BookingCard
@@ -195,7 +264,7 @@ export default function BookingRequests() {
               />
             ))}
           </div>
-        ) : (
+        ) : (!loading && !error && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-4">
               <Calendar className="w-8 h-8 text-muted-foreground" />
@@ -207,7 +276,7 @@ export default function BookingRequests() {
               New booking requests will appear here
             </p>
           </div>
-        )}
+        ))}
       </div>
 
       <NegotiateSheet

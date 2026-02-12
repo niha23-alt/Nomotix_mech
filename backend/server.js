@@ -11,10 +11,12 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import carRoutes from "./routes/carRoutes.js";
+import emergencyRoutes from "./routes/emergencyRoutes.js";
+import supportRoutes from "./routes/supportRoutes.js";
 
 const app = express();
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:8080"], // your frontend's origin
+  origin: ["http://localhost:5000", "http://localhost:5173", "http://localhost:3000", "http://localhost:8080", "http://localhost:8081", "http://localhost:8082", "http://localhost:8083"], // your frontend's origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -30,6 +32,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/cars", carRoutes);
+app.use("/api/emergency", emergencyRoutes);
+app.use("/api/support", supportRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

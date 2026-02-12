@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import {getGaragesinLocation,createGarage,getGaragesinBounds,getGarageById, updateGarage, getGarageSlots, getGarageByPhone} from "../controllers/garageController.js";
+import {getGaragesinLocation,createGarage,getGaragesinBounds,getGarageById, updateGarage, getGarageSlots, getGarageByPhone, addGarageService, deleteGarageService} from "../controllers/garageController.js";
 
 const router=express.Router();
 
@@ -41,5 +41,7 @@ router.get("/nearbygarages",getGaragesinLocation);
 router.get("/phone/:phone", getGarageByPhone);
 router.get("/:id/slots",getGarageSlots);
 router.get("/:id",getGarageById);
+router.post("/:garageId/services",addGarageService);
+router.delete("/:garageId/services/:serviceId",deleteGarageService);
 
 export default router;
