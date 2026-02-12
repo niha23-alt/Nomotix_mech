@@ -202,6 +202,12 @@ export default function Register() {
 
   const handleUseLocation = () => {
     if ("geolocation" in navigator) {
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      };
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setFormData({
@@ -213,8 +219,23 @@ export default function Register() {
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast.error("Failed to get location. Please enter it manually.");
-        }
+          let message = "Failed to get location.";
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              message = "Location permission denied. Please enable it in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              message = "Location information is unavailable.";
+              break;
+            case error.TIMEOUT:
+              message = "Location request timed out. Please try again.";
+              break;
+          }
+          
+          toast.error(message);
+        },
+        options
       );
     } else {
       toast.error("Geolocation is not supported by your browser");
